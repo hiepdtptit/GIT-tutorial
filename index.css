@@ -1,4 +1,7 @@
 button {
   background-color: blue;
-  text: white;
+  color: white;
+}
+body {
+  background-color: lightblue;
 }
