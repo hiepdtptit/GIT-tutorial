@@ -361,6 +361,8 @@ function headerHtml(day) {
         ${stat("Kiến thiết còn", formatSheets(sum.products.kt.remaining), "", "kt")}
         ${stat("Vé cào còn", formatSheets(sum.products.cao.remaining), "", "cao")}
         ${stat("Tiền phải có", formatVnd(sum.cash.total), sum.cash.total < 0 ? "stat-cash neg" : "stat-cash", "cash")}
+        ${stat("Tổng vé đầu ngày", formatSheets(sum.products.kt.opening + sum.products.cao.opening), "stat-day", "opening")}
+        ${stat("Tổng vé đã bán", formatSheets(sum.products.kt.sold + sum.products.cao.sold), "stat-day", "sold")}
       </div>
     </header>`;
 }
