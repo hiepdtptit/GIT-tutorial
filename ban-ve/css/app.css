@@ -119,7 +119,28 @@ button:focus-visible, input:focus-visible {
   min-width: 0;
 }
 
-.stat-day { grid-column: span 3; }
+.stat-sold { grid-column: span 6; }
+
+.opening-line {
+  margin: 12px 0 0;
+  color: var(--gold);
+}
+
+.opening-line span {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.opening-line strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 34px;
+  line-height: 1.05;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
 
 .stat span {
   display: block;
@@ -326,6 +347,31 @@ h1 {
 .pick.cao.on { background: var(--cao); border-color: var(--cao); color: white; }
 .pick.kt:not(.on) strong { color: var(--kt); }
 .pick.cao:not(.on) strong { color: var(--cao); }
+
+.stepper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.step {
+  min-height: 84px;
+  border: 0;
+  border-radius: 18px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.step strong { font-size: 40px; line-height: 1; font-weight: 800; }
+.step small { font-size: 14px; font-weight: 700; }
+.step.minus { background: var(--kt); }
+.step.plus { background: var(--cao); }
+.step:active { transform: scale(0.98); }
 
 .qtys {
   display: grid;

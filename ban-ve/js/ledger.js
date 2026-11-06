@@ -135,6 +135,24 @@ export function undoSale(day) {
   return { ok: true, sale };
 }
 
+/** Take one sheet off the latest sale of this product. A sale of 1 sheet is removed. */
+export function decrementProductSale(day, product) {
+  if (product !== "kt" && product !== "cao") return { ok: false, error: "product" };
+  let index = -1;
+  for (let i = day.sales.length - 1; i >= 0; i -= 1) {
+    if (day.sales[i].product === product) {
+      index = i;
+      break;
+    }
+  }
+  if (index < 0) return { ok: false, error: "empty" };
+  const sale = day.sales[index];
+  if (sale.qty <= 1) day.sales.splice(index, 1);
+  else sale.qty -= 1;
+  day.redo = [];
+  return { ok: true, product };
+}
+
 export function redoSale(day) {
   const sale = day.redo[day.redo.length - 1];
   if (!sale) return { ok: false, error: "empty" };

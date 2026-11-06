@@ -7,6 +7,7 @@ import {
   formatGrouped,
   formatSheets,
   formatVnd,
+  decrementProductSale,
   handover,
   recordAdjustment,
   recordSale,
@@ -37,6 +38,7 @@ const state = {
 };
 
 let toastToken = 0;
+let lastUndoAt = 0;
 
 const app = document.querySelector("#app");
 
@@ -64,6 +66,8 @@ function onClick(event) {
   if (act === "nav") return setView(button.dataset.view);
   if (act === "product") return selectProduct(button.dataset.product);
   if (act === "qty") return sell(Number(button.dataset.n));
+  if (act === "plus") return sell(1);
+  if (act === "minus") return minusOne();
   if (act === "custom-open") {
     state.customOpen = true;
     state.customDigits = "";
@@ -125,13 +129,28 @@ function sell(qty) {
 }
 
 function undo() {
+  const now = Date.now();
+  if (lastUndoAt !== 0 && now - lastUndoAt < 1000) {
+    setToast("Hoàn tác mỗi giây một lần");
+    return;
+  }
   const result = undoSale(state.openDay);
   if (!result.ok) {
     setToast("Chưa có vé để hoàn tác");
     return;
   }
+  lastUndoAt = now;
   const sale = result.sale;
   setToast(`Đã hoàn tác ${sale.qty} tờ ${PRODUCT_NAME[sale.product]}`);
+}
+
+function minusOne() {
+  const result = decrementProductSale(state.openDay, state.product);
+  if (!result.ok) {
+    setToast("Chưa có tờ để bớt");
+    return;
+  }
+  setToast(`Đã bớt 1 tờ ${PRODUCT_NAME[state.product]}`);
 }
 
 function redo() {
@@ -357,12 +376,15 @@ function headerHtml(day) {
         </div>
         <span class="shift shift-${shift}">${shift === "morning" ? "Ca sáng" : "Ca chiều"}</span>
       </div>
+      <p class="opening-line">
+        <span>Tổng vé đầu ngày</span>
+        <strong data-value="opening">${esc(formatSheets(sum.products.kt.opening + sum.products.cao.opening))}</strong>
+      </p>
       <div class="stats" aria-live="polite">
         ${stat("Kiến thiết còn", formatSheets(sum.products.kt.remaining), "", "kt")}
         ${stat("Vé cào còn", formatSheets(sum.products.cao.remaining), "", "cao")}
         ${stat("Tiền phải có", formatVnd(sum.cash.total), sum.cash.total < 0 ? "stat-cash neg" : "stat-cash", "cash")}
-        ${stat("Tổng vé đầu ngày", formatSheets(sum.products.kt.opening + sum.products.cao.opening), "stat-day", "opening")}
-        ${stat("Tổng vé đã bán", formatSheets(sum.products.kt.sold + sum.products.cao.sold), "stat-day", "sold")}
+        ${stat("Tổng vé đã bán", formatSheets(sum.products.kt.sold + sum.products.cao.sold), "stat-sold", "sold")}
       </div>
     </header>`;
 }
@@ -403,6 +425,10 @@ function sellHtml(day) {
     <div class="products">
       ${pick("kt", sum)}
       ${pick("cao", sum)}
+    </div>
+    <div class="stepper">
+      <button type="button" class="step minus" data-act="minus" aria-label="Bớt 1 tờ"><strong>−</strong><small>Bớt 1</small></button>
+      <button type="button" class="step plus" data-act="plus" aria-label="Bán 1 tờ"><strong>+</strong><small>Bán 1</small></button>
     </div>
     <div class="qtys">${keys}<button type="button" class="qty other" data-act="custom-open">Số khác</button></div>
     <div class="moves">

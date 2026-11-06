@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   closeDay,
   createDay,
+  decrementProductSale,
   expectedCash,
   expectedRemaining,
   giftedSheets,
@@ -89,6 +90,24 @@ test("cannot sell or gift more sheets than remain", () => {
   assert.equal(recordAdjustment(day, { kind: "sheets", product: "kt", delta: -4, reason: "tặng" }).error, "stock");
   assert.equal(recordAdjustment(day, { kind: "cash", delta: -50000, reason: "ăn sáng" }).ok, true);
   assert.equal(expectedCash(day), 10000 - 50000);
+});
+
+test("minus one sheet changes only the latest sale of that product", () => {
+  const day = open(10, 10);
+  recordSale(day, "kt", 3);
+  recordSale(day, "cao", 2);
+  recordSale(day, "kt", 1);
+  undoSale(day);
+  assert.equal(decrementProductSale(day, "cao").ok, true);
+  assert.equal(day.redo.length, 0);
+  assert.equal(day.sales.find((sale) => sale.product === "cao").qty, 1);
+  assert.equal(decrementProductSale(day, "cao").ok, true);
+  assert.equal(day.sales.some((sale) => sale.product === "cao"), false);
+  assert.equal(day.sales.find((sale) => sale.product === "kt").qty, 3);
+  assert.equal(expectedRemaining(day, "kt"), 7);
+  assert.equal(expectedCash(day), 3 * 10000);
+  recordAdjustment(day, { kind: "sheets", product: "cao", delta: -1, reason: "tặng" });
+  assert.equal(decrementProductSale(day, "cao").error, "empty");
 });
 
 test("close compares counted sheets and cash, including a match", () => {
