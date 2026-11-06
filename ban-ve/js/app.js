@@ -47,8 +47,6 @@ app.addEventListener("click", onClick);
 app.addEventListener("input", (event) => {
   if (event.target.id !== "reason") return;
   state.adjustReason = event.target.value.slice(0, 80);
-  const save = app.querySelector('[data-act="adjust-save"]');
-  if (save) save.disabled = !canSaveAdjust();
 });
 app.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && event.target.id === "reason") {
@@ -59,7 +57,7 @@ app.addEventListener("keydown", (event) => {
 
 function onClick(event) {
   const button = event.target.closest("[data-act]");
-  if (!button || button.disabled) return;
+  if (!button) return;
   const act = button.dataset.act;
 
   if (act === "digit") return onDigit(button.dataset.d);
@@ -117,7 +115,7 @@ function selectProduct(product) {
 function sell(qty) {
   const result = recordSale(state.openDay, state.product, qty);
   if (!result.ok) {
-    setToast(result.error === "stock" ? "Không đủ tờ trong quầy" : "Chưa bán được");
+    setToast(result.error === "stock" ? "Không đủ tờ trong quầy" : "Nhập số tờ lớn hơn 0");
     return;
   }
   state.customOpen = false;
@@ -128,7 +126,10 @@ function sell(qty) {
 
 function undo() {
   const result = undoSale(state.openDay);
-  if (!result.ok) return;
+  if (!result.ok) {
+    setToast("Chưa có vé để hoàn tác");
+    return;
+  }
   const sale = result.sale;
   setToast(`Đã hoàn tác ${sale.qty} tờ ${PRODUCT_NAME[sale.product]}`);
 }
@@ -136,7 +137,7 @@ function undo() {
 function redo() {
   const result = redoSale(state.openDay);
   if (!result.ok) {
-    setToast(result.error === "stock" ? "Không đủ tờ để làm lại" : "Không có vé để làm lại");
+    setToast(result.error === "stock" ? "Không đủ tờ trong quầy" : "Không có vé để làm lại");
     return;
   }
   const sale = result.sale;
@@ -146,7 +147,10 @@ function redo() {
 function openDay() {
   const kt = parseDigits(state.openDigits.kt);
   const cao = parseDigits(state.openDigits.cao);
-  if (kt === null || cao === null) return;
+  if (kt === null || cao === null) {
+    setToast("Nhập số tờ Kiến thiết và Vé cào, rồi bấm Mở quầy");
+    return;
+  }
   const created = createDay({ kt, cao });
   if (!created.ok) return;
   state.openDay = created.day;
@@ -164,12 +168,16 @@ function confirmHandover() {
 }
 
 function saveAdjust() {
-  if (!canSaveAdjust()) {
-    setToast(state.adjustReason.trim() ? "Nhập số lớn hơn 0" : "Nhập lý do ngắn");
-    return;
-  }
   const amount = parseDigits(state.adjustDigits);
   const sheets = state.adjustMode === "gift" || state.adjustMode === "stock";
+  if (!state.adjustReason.trim()) {
+    setToast("Nhập lý do ngắn");
+    return;
+  }
+  if (amount === null || amount < 1) {
+    setToast(sheets ? "Nhập số tờ lớn hơn 0" : "Nhập số lớn hơn 0");
+    return;
+  }
   const result = recordAdjustment(state.openDay, {
     kind: sheets ? "sheets" : "cash",
     product: sheets ? state.adjustProduct : null,
@@ -177,7 +185,7 @@ function saveAdjust() {
     reason: state.adjustReason,
   });
   if (!result.ok) {
-    setToast(result.error === "stock" ? "Không đủ tờ để tặng" : "Chưa ghi được");
+    setToast(result.error === "stock" ? "Không đủ tờ trong quầy" : "Chưa ghi được");
     return;
   }
   state.adjustDigits = "";
@@ -189,7 +197,10 @@ function finishDay() {
   const kt = parseDigits(state.closeDigits.kt);
   const cao = parseDigits(state.closeDigits.cao);
   const cash = parseDigits(state.closeDigits.cash);
-  if (kt === null || cao === null || cash === null) return;
+  if (kt === null || cao === null || cash === null) {
+    setToast("Nhập đủ ba số đếm rồi mới chốt");
+    return;
+  }
   const result = closeDay(state.openDay, { kt, cao, cash });
   if (!result.ok) return;
   state.lastClosed = result.closed;
@@ -288,9 +299,8 @@ function render() {
 function shell() {
   if (state.reviewing && state.lastClosed) return reviewHtml();
   if (!state.openDay) {
-    const ready = parseDigits(state.openDigits.kt) !== null && parseDigits(state.openDigits.cao) !== null;
     return `${openHtml()}${dockHtml(
-      `<button type="button" class="primary dock-go" data-act="open-day" ${ready ? "" : "disabled"}>Mở quầy</button>${numpadHtml()}`,
+      `<button type="button" class="primary dock-go" data-act="open-day">Mở quầy</button>${numpadHtml()}`,
     )}`;
   }
   const day = state.openDay;
@@ -318,15 +328,12 @@ function dockFor() {
     return dockHtml(`
       <div class="dock-row">
         <div class="readout"><span>${sheets ? "Số tờ" : "Số tiền"}</span><strong>${esc(shown)}</strong></div>
-        <button type="button" class="save" data-act="adjust-save" ${canSaveAdjust() ? "" : "disabled"}>${label}</button>
+        <button type="button" class="save" data-act="adjust-save">${label}</button>
       </div>
       ${numpadHtml()}`);
   }
   if (state.view === "close") {
-    const ready = ["kt", "cao", "cash"].every((key) => state.closeDigits[key] !== "");
-    return dockHtml(
-      `<button type="button" class="primary dock-go" data-act="close-day" ${ready ? "" : "disabled"}>Chốt sổ</button>${numpadHtml()}`,
-    );
+    return dockHtml(`<button type="button" class="primary dock-go" data-act="close-day">Chốt sổ</button>${numpadHtml()}`);
   }
   return "";
 }
@@ -381,15 +388,13 @@ function navHtml() {
 function sellHtml(day) {
   if (state.customOpen) return customHtml(day);
   const sum = summarize(day);
-  const left = sum.products[state.product].remaining;
   const last = day.sales[day.sales.length - 1];
   const keys = [1, 2, 3, 5, 10, 16, 20]
-    .map((qty) => {
-      const disabled = qty > left ? "disabled" : "";
-      return `<button type="button" class="qty" data-act="qty" data-n="${qty}" ${disabled} aria-label="Bán ${qty} tờ">
+    .map(
+      (qty) => `<button type="button" class="qty" data-act="qty" data-n="${qty}" aria-label="Bán ${qty} tờ">
         <strong>${qty}</strong><small>${esc(formatVnd(qty * PRICE))}</small>
-      </button>`;
-    })
+      </button>`,
+    )
     .join("");
   const recent = [...day.sales].reverse().slice(0, 8);
   return `
@@ -399,8 +404,8 @@ function sellHtml(day) {
     </div>
     <div class="qtys">${keys}<button type="button" class="qty other" data-act="custom-open">Số khác</button></div>
     <div class="moves">
-      <button type="button" class="undo" data-act="undo" ${day.sales.length ? "" : "disabled"}>Hoàn tác</button>
-      <button type="button" class="redo" data-act="redo" ${day.redo.length ? "" : "disabled"}>Làm lại</button>
+      <button type="button" class="undo" data-act="undo">Hoàn tác</button>
+      <button type="button" class="redo" data-act="redo">Làm lại</button>
     </div>
     <p class="sale-line">${last ? `Vừa bán: ${esc(PRODUCT_NAME[last.product])} × ${last.qty}` : "Chưa bán vé nào"}</p>
     ${recent.length ? `<ul class="log">${recent.map(saleRow).join("")}</ul>` : ""}`;
@@ -427,7 +432,7 @@ function customHtml(day) {
     </div>
     <p class="lead">Bán ${esc(PRODUCT_NAME[state.product])}. Còn ${esc(formatSheets(left))}.</p>
     <div class="field on"><span>Số tờ</span><strong>${esc(state.customDigits === "" ? "0" : formatGrouped(Number(state.customDigits)))}</strong></div>
-    <button type="button" class="primary" data-act="custom-sell" ${ready ? "" : "disabled"}>${esc(label)}</button>
+    <button type="button" class="primary" data-act="custom-sell">${esc(label)}</button>
     ${numpadHtml()}`;
 }
 
@@ -715,17 +720,6 @@ function dockHtml(inner) {
 function toastHtml() {
   if (!state.toast) return "";
   return `<div class="toast" role="status">${esc(state.toast)}</div>`;
-}
-
-function canSaveAdjust() {
-  const amount = parseDigits(state.adjustDigits);
-  if (amount === null || amount < 1) return false;
-  if (!state.adjustReason.trim()) return false;
-  if (state.adjustMode === "gift") {
-    const left = summarize(state.openDay).products[state.adjustProduct].remaining;
-    if (amount > left) return false;
-  }
-  return true;
 }
 
 function parseDigits(value) {
